@@ -1,0 +1,84 @@
+#!/bin/bash
+
+readonly PROGNAME="$(basename $0)"
+readonly USAGE="Usage: $PROGNAME [-d] -n nodes -p ppn -m mem -t walltime -- root_dir"
+
+# constants set by minerva
+readonly MAX_PPN=12
+readonly MAX_NODES=48 # 576/12
+readonly MAX_MEM=2012
+readonly MAX_WALLTIME="48:00:00"
+
+readonly DEV_PPN=12
+readonly DEV_NODES=4 # 48/12
+readonly DEV_MEM=2012
+readonly DEV_WALLTIME="01:00:00"
+
+# constants given as options
+# TODO: enforce limits based on devel/normal queues
+NODES=
+PPN=
+# TODO: default for MEM, limit to 2012
+MEM=
+WALLTIME=
+DEVEL_FLAG=
+
+
+err () {
+    echo -e "$PROGNAME: $@""\nTry -h for usage." >&2; exit 1
+}
+
+# process command line flags
+while getopts ":hdn:p:m:t:" flag; do
+    case "$flag" in
+        n) NODES="$OPTARG" ;;
+        p) PPN="$OPTARG" ;;
+        m) MEM="$OPTARG" ;;
+        t) WALLTIME="$OPTARG" ;;
+        d) DEVEL_FLAG="-q devel" ;;
+        h) echo $USAGE; exit ;;
+        :) err "Option -$OPTARG requires argument" ;;
+        \?) echo "Unrecognized option -$OPTARG" >&2 ;;
+        *) err "Unexpected optargs output" ;;
+    esac
+done
+readonly NODES PPN MEM WALLTIME DEVEL_FLAG
+
+# quit if mandatory constants not given
+if [[ -z "$NODES" || -z "$PPN" || -z "$MEM" || -z "$WALLTIME" ]]; then
+    err "Required flags not set."
+fi
+
+# first argument after flags is code root directory
+shift $((${OPTIND} - 1))
+
+# check necessary directory layout
+readonly ROOT_DIR="${1/%\//}"
+readonly EPOCH_DIR="$ROOT_DIR"/epoch3d
+readonly DATA_DIR="$EPOCH_DIR"/Data
+readonly EPOCH="$EPOCH_DIR"/bin/epoch3d
+
+if [ -z "$ROOT_DIR" ]; then
+    err "root_dir not given"
+elif [ ! -f "$EPOCH" ]; then
+    err "could not find file $EPOCH"
+elif [ ! -x "$EPOCH" ]; then
+    err "file $EPOCH not executable"
+fi
+
+# TODO: add support for different input decks
+
+output_dir="$HOME/output/${ROOT_DIR}_$(($NODES * $PPN))"
+output_dir="$(mkuniqdir $output_dir)"
+
+cat <<MSUB_SUBMISSION_SCRIPT---------------------------------------
+#!/bin/bash
+#PBS -l nodes=${NODES}:ppn=${PPN},mem=${MEM}mb,walltime=${WALLTIME}
+
+module load ompi/1.6.4/intel/12.1
+
+mpirun $EPOCH <<<"$DATA_DIR"
+copy_epoch_data "$DATA_DIR" "$output_dir"
+clean_epoch_data "$DATA_DIR"
+
+MSUB_SUBMISSION_SCRIPT---------------------------------------

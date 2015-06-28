@@ -1,0 +1,14 @@
+#!/bin/bash
+
+dirname=$1
+i=1
+[ -z $dirname ] && exit 1;
+if [ ! -e $dirname ]; then
+    mkdir $dirname
+    echo $dirname
+else
+    until mkdir "${dirname}_"$i 2>&-; do
+        i=$(($i + 1))
+    done;
+    echo ${dirname}_$i
+fi

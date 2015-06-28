@@ -1,0 +1,13 @@
+#!/bin/bash
+
+rebuild () {
+    proj_dir=$1
+    make -C $proj_dir clean; make -C $proj_dir -j5 EXTRA_FLAGS=-pg COMPILER=intel 2>$HOME
+}
+
+for dir in $@; do
+    $dir/epoch3d || continue
+
+    { make clean; make -j5 EXTRA_FLAGS=-pg COMPILER=intel 2>$HOME } 
+    cp ~/input.deck Data
+done

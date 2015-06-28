@@ -1,0 +1,6 @@
+#!/bin/bash
+
+data_dir="$1"
+output_dir="$2"
+
+cp "${data_dir}"/*{sdf,visit,dat,status} $output_dir

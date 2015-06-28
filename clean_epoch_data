@@ -1,0 +1,4 @@
+#!/bin/sh
+
+data_dir="$1"
+rm "${data_dir}"/*{sdf,visit,dat,status}
