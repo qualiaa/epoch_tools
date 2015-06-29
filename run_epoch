@@ -73,7 +73,7 @@ output_dir="$(mkuniqdir $output_dir)"
 
 cat <<MSUB_SUBMISSION_SCRIPT---------------------------------------
 #!/bin/bash
-#PBS -l nodes=${NODES}:ppn=${PPN},mem=${MEM}mb,walltime=${WALLTIME}
+#PBS -l nodes=${NODES}:ppn=${PPN},pvmem=${MEM}mb,walltime=${WALLTIME}
 
 module load ompi/1.6.4/intel/12.1
 
