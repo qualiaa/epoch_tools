@@ -19,9 +19,12 @@ readonly DEV_WALLTIME="01:00:00"
 NODES=
 PPN=
 # TODO: default for MEM, limit to 2012
-MEM=
+MEM=2012
 WALLTIME=
 DEVEL_FLAG=
+subarray_flag= 
+N_SUBARRAY=
+COMMAND=cat
 
 
 err () {
@@ -29,20 +32,22 @@ err () {
 }
 
 # process command line flags
-while getopts ":hdn:p:m:t:" flag; do
+while getopts ":hrda:n:p:m:t:" flag; do
     case "$flag" in
+        a) SUBARRAY_FLAG="-t 1-${OPTARG}:1" ;;
         n) NODES="$OPTARG" ;;
         p) PPN="$OPTARG" ;;
         m) MEM="$OPTARG" ;;
         t) WALLTIME="$OPTARG" ;;
-        d) DEVEL_FLAG="-q devel" ;;
+        d) DEVEL_FLAG="-q midplusdevel" ;;
+        r) COMMAND="msub -A midpluswarwick" ;;
         h) echo $USAGE; exit ;;
         :) err "Option -$OPTARG requires argument" ;;
         \?) echo "Unrecognized option -$OPTARG" >&2 ;;
         *) err "Unexpected optargs output" ;;
     esac
 done
-readonly NODES PPN MEM WALLTIME DEVEL_FLAG
+readonly NODES PPN MEM WALLTIME DEVEL_FLAG SUBARRAY_FLAG COMMAND
 
 # quit if mandatory constants not given
 if [[ -z "$NODES" || -z "$PPN" || -z "$MEM" || -z "$WALLTIME" ]]; then
@@ -68,17 +73,35 @@ fi
 
 # TODO: add support for different input decks
 
-output_dir="$HOME/output/${ROOT_DIR}_$(($NODES * $PPN))"
-output_dir="$(mkuniqdir $output_dir)"
+n_proc=$(($NODES * $PPN))
+output_dir="$HOME/output/$(basename ${ROOT_DIR})"
+output_dir="${output_dir}_${n_proc}proc"
+output_dir="$(mkuniqdir $output_dir)" # append a unique number
 
-cat <<MSUB_SUBMISSION_SCRIPT---------------------------------------
+if [ -n "$SUBARRAY_FLAG" ]; then
+    pbs_extra_args='#PBS'
+    pbs_extra_args="$pbs_extra_args $SUBARRAY_FLAG"
+fi
+
+${COMMAND} ${DEVEL_FLAG} <<MSUB_SUBMISSION_SCRIPT---------------------------------------
 #!/bin/bash
 #PBS -l nodes=${NODES}:ppn=${PPN},pvmem=${MEM}mb,walltime=${WALLTIME}
+$pbs_extra_args
 
 module load ompi/1.6.4/intel/12.1
 
-mpirun $EPOCH <<<"$DATA_DIR"
-copy_epoch_data "$DATA_DIR" "$output_dir"
-clean_epoch_data "$DATA_DIR"
+cd \$PBS_O_WORKDIR
+
+output_dir="$output_dir"
+
+if [ -n "$SUBARRAY_FLAG" ]; then
+    output_dir="\${output_dir}/\${MOAB_JOBARRAYINDEX}"
+    mkdir "\$output_dir"
+fi
+
+cp "$DATA_DIR"/input.deck "\$output_dir"
+mpirun $EPOCH <<<"\$output_dir"
+gprof $EPOCH > "\$output_dir"/profile.out
+rm gmon.out
 
 MSUB_SUBMISSION_SCRIPT---------------------------------------
