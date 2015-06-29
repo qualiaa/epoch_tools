@@ -18,13 +18,16 @@ readonly DEV_WALLTIME="01:00:00"
 # TODO: enforce limits based on devel/normal queues
 NODES=
 PPN=
-# TODO: default for MEM, limit to 2012
-MEM=2012
+MEM=2012 # TODO: default for MEM, limit to 2012
 WALLTIME=
-DEVEL_FLAG=
-subarray_flag= 
-N_SUBARRAY=
-COMMAND=cat
+RUN=false
+DEVEL=false
+ARRAY=false
+N_ARRAY=
+
+command=cat
+sub_flags="-A midpluswarwick $sub_flags"
+pbs_flags='#PBS'
 
 
 err () {
@@ -34,20 +37,20 @@ err () {
 # process command line flags
 while getopts ":hrda:n:p:m:t:" flag; do
     case "$flag" in
-        a) SUBARRAY_FLAG="-t 1-${OPTARG}:1" ;;
+        a) ARRAY=true; N_ARRAY="$OPTARG" ;;
         n) NODES="$OPTARG" ;;
         p) PPN="$OPTARG" ;;
         m) MEM="$OPTARG" ;;
         t) WALLTIME="$OPTARG" ;;
-        d) DEVEL_FLAG="-q midplusdevel" ;;
-        r) COMMAND="msub -A midpluswarwick" ;;
+        d) DEVEL=true; sub_flags="$sub_flags -q midplusdevel" ;;
+        r) RUN=true ;;
         h) echo $USAGE; exit ;;
         :) err "Option -$OPTARG requires argument" ;;
         \?) echo "Unrecognized option -$OPTARG" >&2 ;;
         *) err "Unexpected optargs output" ;;
     esac
 done
-readonly NODES PPN MEM WALLTIME DEVEL_FLAG SUBARRAY_FLAG COMMAND
+readonly NODES PPN MEM WALLTIME ARRAY N_ARRAY DEVEL RUN
 
 # quit if mandatory constants not given
 if [[ -z "$NODES" || -z "$PPN" || -z "$MEM" || -z "$WALLTIME" ]]; then
@@ -76,17 +79,29 @@ fi
 n_proc=$(($NODES * $PPN))
 output_dir="$HOME/output/$(basename ${ROOT_DIR})"
 output_dir="${output_dir}_${n_proc}proc"
+[[ $DEVEL == true ]] && output_dir="${output_dir}_devel"
 output_dir="$(mkuniqdir $output_dir)" # append a unique number
 
-if [ -n "$SUBARRAY_FLAG" ]; then
-    pbs_extra_args='#PBS'
-    pbs_extra_args="$pbs_extra_args $SUBARRAY_FLAG"
+if [[ $ARRAY == true ]]; then
+    pbs_flags="$pbs_flags -t 1-${N_ARRAY}:1"
 fi
 
-${COMMAND} ${DEVEL_FLAG} <<MSUB_SUBMISSION_SCRIPT---------------------------------------
+if [[ $RUN == true ]]; then
+    command="msub $sub_flags"
+else
+    command="cat"
+    rmdir $output_dir
+    echo "sub_flags: $sub_flags"
+    echo "output_dir: $output_dir"
+    echo "========================"
+    echo "begin submission script:"
+    echo "========================"
+fi
+
+${command} <<MSUB_SUBMISSION_SCRIPT---------------------------------------
 #!/bin/bash
 #PBS -l nodes=${NODES}:ppn=${PPN},pvmem=${MEM}mb,walltime=${WALLTIME}
-$pbs_extra_args
+$pbs_flags
 
 module load ompi/1.6.4/intel/12.1
 
@@ -94,7 +109,7 @@ cd \$PBS_O_WORKDIR
 
 output_dir="$output_dir"
 
-if [ -n "$SUBARRAY_FLAG" ]; then
+if [[ $ARRAY == true ]]; then
     output_dir="\${output_dir}/\${MOAB_JOBARRAYINDEX}"
     mkdir "\$output_dir"
 fi
