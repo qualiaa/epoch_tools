@@ -1,14 +1,22 @@
 #!/bin/bash
 
-dirname=$1
+readonly PROGNAME="$(basename $0)"
+readonly USAGE="Usage: $PROGNAME [-d] -n nodes -p ppn -m mem -t walltime -- root_dir"
+err () {
+    echo -e "$PROGNAME: $@" >&2; exit 1
+}
+
+name=$1
 i=1
-[ -z $dirname ] && exit 1;
-if [ ! -e $dirname ]; then
-    mkdir $dirname
-    echo $dirname
+[ -z "$name" ] && err "missing operand\nTry \`$PROGNAME -h\' for more information."
+[ ! -w "$(dirname $name)" ] && err "cannot create directory \`$name': Permission denied"
+
+if [ ! -e $name ]; then
+    mkdir $name
+    echo $name
 else
-    until mkdir "${dirname}_"$i 2>&-; do
+    until mkdir "${name}_"$i 2>&-; do
         i=$(($i + 1))
     done;
-    echo ${dirname}_$i
+    echo ${name}_$i
 fi
