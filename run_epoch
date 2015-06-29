@@ -27,7 +27,7 @@ N_ARRAY=
 
 command=cat
 sub_flags="-A midpluswarwick $sub_flags"
-pbs_flags='#PBS'
+pbs_flags=
 
 
 err () {
@@ -98,6 +98,9 @@ else
     echo "========================"
 fi
 
+## prepend pbs_flags with #PBS
+[ -n "$pbs_flags" ] && pbs_flags="#PBS $pbs_flags"
+
 ${command} <<MSUB_SUBMISSION_SCRIPT---------------------------------------
 #!/bin/bash
 #PBS -l nodes=${NODES}:ppn=${PPN},pvmem=${MEM}mb,walltime=${WALLTIME}
@@ -114,8 +117,10 @@ if [[ $ARRAY == true ]]; then
     mkdir "\$output_dir"
 fi
 
+time_file="\$output_dir"/timings.out
+
 cp "$DATA_DIR"/input.deck "\$output_dir"
-mpirun $EPOCH <<<"\$output_dir"
+{ time mpirun $EPOCH <<<"\$output_dir" | tail -1 >&2; } 2>>"\$time_file"
 gprof $EPOCH > "\$output_dir"/profile.out
 rm gmon.out
 
