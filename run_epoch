@@ -111,17 +111,26 @@ module load ompi/1.6.4/intel/12.1
 cd \$PBS_O_WORKDIR
 
 output_dir="$output_dir"
+time_file="${output_dir}/time.out"
+profile_file="${output_dir}/profile.out"
+stdout_file="${output_dir}/out"
+stderr_file="${output_dir}/err"
 
 if [[ $ARRAY == true ]]; then
     output_dir="\${output_dir}/\${MOAB_JOBARRAYINDEX}"
     mkdir "\$output_dir"
 fi
 
-time_file="\$output_dir"/timings.out
-
 cp "$DATA_DIR"/input.deck "\$output_dir"
-{ time mpirun $EPOCH <<<"\$output_dir" | tail -1 >&2; } 2>>"\$time_file"
-gprof $EPOCH > "\$output_dir"/profile.out
+{ time mpirun $EPOCH <<<"\$output_dir" } \\
+    1>"\${stdout_file}" \\
+    2>"\${stderr_file}"
+
+
+tail -3 < "\${stderr_file}" >"\${time_file}"
+
+
+gprof $EPOCH > "\${profile_file}"
 rm gmon.out
 
 MSUB_SUBMISSION_SCRIPT---------------------------------------
