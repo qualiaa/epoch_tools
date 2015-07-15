@@ -9,7 +9,7 @@ if [ "${path:0:1}" != / ]; then
     if [ -d "$dir" ]; then
         path="$(cd $dir; pwd)/$(basename $path)"
     else
-        path="${PWD}/${path%/}"
+        path="${PWD}/$(sed -E 's-//+-/-g;s-/$--' <<<${path})"
     fi
 fi
 
