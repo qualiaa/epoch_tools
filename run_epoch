@@ -128,18 +128,19 @@ profile_file="\${output_dir}/profile.out"
 stdout_file="\${output_dir}/out"
 stderr_file="\${output_dir}/err"
 
+cd "\${output_dir}"
 cp "$INPUT_DECK" "\${output_dir}/input.deck"
 { time mpirun $EPOCH <<<"\$output_dir" ; } \\
-    1>"\${stdout_file}" \\
-    2>"\${stderr_file}"
+    1>out
+    2>err
 
 # move time output to own file
-tail -3 < "\${stderr_file}" >"\${time_file}"
-head -n -3 "\${stderr_file}" > "\${stderr_file}_tmp"
-mv "\${stderr_file}_tmp" "\${stderr_file}"
+tail -3 < err >time.out
+head -n -3 err > err_tmp
+mv err_tmp err
 
 # generate profile and clean up
-gprof $EPOCH > "\${profile_file}"
-rm gmon.out
+gprof $EPOCH > profile.out
+#rm gmon.out
 
 MSUB_SUBMISSION_SCRIPT---------------------------------------
