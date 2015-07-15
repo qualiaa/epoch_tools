@@ -23,6 +23,7 @@ WALLTIME=
 RUN=false
 DEVEL=false
 ARRAY=false
+INPUT_DECK="$HOME/input.deck"
 N_ARRAY=
 
 command=cat
@@ -35,9 +36,10 @@ err () {
 }
 
 # process command line flags
-while getopts ":hrda:n:p:m:t:" flag; do
+while getopts ":a:i:n:p:m:t:drh" flag; do
     case "$flag" in
         a) ARRAY=true; N_ARRAY="$OPTARG" ;;
+        i) INPUT_DECK="$(abspath $OPTARG)" ;;
         n) NODES="$OPTARG" ;;
         p) PPN="$OPTARG" ;;
         m) MEM="$OPTARG" ;;
@@ -50,21 +52,26 @@ while getopts ":hrda:n:p:m:t:" flag; do
         *) err "Unexpected optargs output" ;;
     esac
 done
-readonly NODES PPN MEM WALLTIME ARRAY N_ARRAY DEVEL RUN
+readonly NODES PPN MEM WALLTIME ARRAY N_ARRAY INPUT_DECK DEVEL RUN
 
 # quit if mandatory constants not given
 if [[ -z "$NODES" || -z "$PPN" || -z "$MEM" || -z "$WALLTIME" ]]; then
     err "Required flags not set."
 fi
+# quit if MEM out of bounds
+[ "$MEM" -le 2012 ] || err "-m: memory must be less than or equal to 2012"
+# quit if input file doesn't exist
+[[ -f "$INPUT_DECK" && -r "$INPUT_DECK" ]] || err "-i: invalid input.deck file"
+
 
 # first argument after flags is code root directory
 shift $((${OPTIND} - 1))
 
 # check necessary directory layout
-readonly ROOT_DIR="${1/%\//}"
-readonly EPOCH_DIR="$ROOT_DIR"/epoch3d
-readonly DATA_DIR="$EPOCH_DIR"/Data
-readonly EPOCH="$EPOCH_DIR"/bin/epoch3d
+readonly ROOT_DIR="$(abspath $1)"
+readonly EPOCH_DIR="${ROOT_DIR}/epoch3d"
+readonly DATA_DIR="${EPOCH_DIR}/Data"
+readonly EPOCH="${EPOCH_DIR}/bin/epoch3d"
 
 if [ -z "$ROOT_DIR" ]; then
     err "root_dir not given"
@@ -110,26 +117,28 @@ module load ompi/1.6.4/intel/12.1
 
 cd \$PBS_O_WORKDIR
 
-output_dir="$output_dir"
-time_file="${output_dir}/time.out"
-profile_file="${output_dir}/profile.out"
-stdout_file="${output_dir}/out"
-stderr_file="${output_dir}/err"
-
+output_dir="${output_dir}"
 if [[ $ARRAY == true ]]; then
     output_dir="\${output_dir}/\${MOAB_JOBARRAYINDEX}"
     mkdir "\$output_dir"
 fi
 
-cp "$DATA_DIR"/input.deck "\$output_dir"
+time_file="\${output_dir}/time.out"
+profile_file="\${output_dir}/profile.out"
+stdout_file="\${output_dir}/out"
+stderr_file="\${output_dir}/err"
+
+cp "$INPUT_DECK" "\${output_dir}/input.deck"
 { time mpirun $EPOCH <<<"\$output_dir" ; } \\
     1>"\${stdout_file}" \\
     2>"\${stderr_file}"
 
-
+# move time output to own file
 tail -3 < "\${stderr_file}" >"\${time_file}"
+head -n -3 "\${stderr_file}" > "\${stderr_file}_tmp"
+mv "\${stderr_file}_tmp" "\${stderr_file}"
 
-
+# generate profile and clean up
 gprof $EPOCH > "\${profile_file}"
 rm gmon.out
 
