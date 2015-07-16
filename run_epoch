@@ -131,7 +131,7 @@ stderr_file="\${output_dir}/err"
 cd "\${output_dir}"
 cp "$INPUT_DECK" "\${output_dir}/input.deck"
 { time mpirun $EPOCH <<<"\$output_dir" ; } \\
-    1>out
+    1>out \\
     2>err
 
 # move time output to own file
