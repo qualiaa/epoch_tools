@@ -23,7 +23,7 @@ WALLTIME=
 RUN=false
 DEVEL=false
 ARRAY=false
-INPUT_DECK="$HOME/input.deck"
+INPUT_DECK="$HOME/input/input.deck"
 N_ARRAY=
 
 command=cat
@@ -60,8 +60,13 @@ if [[ -z "$NODES" || -z "$PPN" || -z "$MEM" || -z "$WALLTIME" ]]; then
 fi
 # quit if MEM out of bounds
 [ "$MEM" -le 2012 ] || err "-m: memory must be less than or equal to 2012"
+
 # quit if input file doesn't exist
-[[ -f "$INPUT_DECK" && -r "$INPUT_DECK" ]] || err "-i: invalid input.deck file"
+if [ ! -f "$INPUT_DECK" ]; then
+    err "-i: input deck not found: $INPUT_DECK"
+elif [ ! -r "$INPUT_DECK" ]; then
+    err "-i: cannot read input deck: $INPUT_DECK"
+fi 
 
 
 # first argument after flags is code root directory
