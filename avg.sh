@@ -14,22 +14,22 @@ set style line 2 lc rgb "#dd8080"
 set yrange [0:]
 unset key
 
-plot "$temp" u :2:xtic(1) w boxes ls 2
+plot "$temp" u :2:xtic(1) w boxes ls 2, \
+     "$temp" u :(100):2       w labels font ",8"
 HEAD
 
-    # add position column to data
+    # add average to database
     awk '
-    BEGIN { OFS="\t" }
     { 
         avg = 0
         for (i=2; i <= NF; ++i) {
             avg += $i
         }
-        avg /= NF - 2
+        avg /= NF - 1
         gsub(/_/," ",$1)
         printf("\"%s\"\t%g\n", $1, avg)
     }
     ' $file > $temp
 
-    gnuplot -p $plotfile
+    gnuplot -persist $plotfile
 done
