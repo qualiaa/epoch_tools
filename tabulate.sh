@@ -49,6 +49,7 @@ fi
 
 for build in "$@"; do
     title="${build%_*proc*}"
+    title="${title%_sp}"
     echo $title >> $timefile
     echo $title >> $corefile
     if [ -d "${build}/1" ]; then
