@@ -6,53 +6,42 @@ temp="/var/tmp/temp.dat"
 
 for file in "$@"; do
     cat  > "$plotfile" <<HEAD
-set style fill solid
-#set style fill solid 0.25 border -1
+set style fill solid 0.25 border -1
 set style boxplot outliers pointtype 7
 set style data boxplot
-unset key
+set datafile separator '\t'
+set nokey
 
+set ylabel "Time / s"
+
+plot "$temp" using (1):1:(0.5):2
 HEAD
 
-    # script 1: generate x labels from string preceding data
-    # in format, ("label" x_coord, ...)
-    awk '
-    BEGIN { 
-        printf "set xtics ("
-    }
-    { 
-        array[$1] = NR
-    }
-    END {
-        for (name in array) {
-            pname = name
-            gsub(/_/," ",pname)
-            printf("\"%s\" %G,", pname, array[name])
+    awk 'BEGIN {OFS="\t"}
+    {
+        name = $1
+        gsub(/_/," ",name)
+        for (i = 2; i <= NF; ++i) {
+            printf("%g\t\"%s\"\n", $i, name)
         }
-        printf ")\n"
-    }' $file >> "$plotfile"
+    }' $file > $temp
 
-    cat > "$plotfile" <<PLOT
-n_col = "< awk '{ x = NF } END { print x }' $plotfile"
-plot for [i=1:3] "$plotfile" using (i):i notitle
-PLOT
-
-    # transpose numeric columns
-    awk 'BEGIN { z = 0 }
-    {   
-        lines[NR] = $0
-        z = z < NF ? NF : z
-    }
-    END {
-        for (j = 2; j <= z; ++j) {
-            for (i = 1; i <= NR; ++i) {
-                split(lines[i], line_i)
-                printf("%g\t",line_i[j])
-            }
-            printf("\n")
-        }
-    }
-    ' $file > $temp
+#   # transpose numeric columns
+#   awk 'BEGIN { z = 0 }
+#   {
+#       lines[NR] = $0
+#       z = z < NF ? NF : z
+#   }
+#   END {
+#       for (j = 2; j <= z; ++j) {
+#           for (i = 1; i <= NR; ++i) {
+#               split(lines[i], line_i)
+#               printf("%g\t",line_i[j])
+#           }
+#           printf("\n")
+#       }
+#   }
+#   ' $file > $temp
 
     gnuplot -persist $plotfile
 done
