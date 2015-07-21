@@ -15,7 +15,7 @@ set yrange [0:]
 unset key
 
 plot "$temp" u :2:xtic(1) w boxes ls 2, \
-     "$temp" u :(100):2       w labels font ",8"
+     "$temp" u :(20):2    w labels font ",8"
 HEAD
 
     # add average to database
@@ -29,7 +29,8 @@ HEAD
         gsub(/_/," ",$1)
         printf("\"%s\"\t%g\n", $1, avg)
     }
-    ' $file > $temp
+    ' $file \
+        | sort -t $'\t' -k2n > $temp
 
     gnuplot -persist $plotfile
 done
