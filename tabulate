@@ -4,10 +4,6 @@
 corefile="core.dat"
 timefile="time.dat"
 
-mtos () {
-    awk '{ print 60*$1 + $2 }'
-}
-
 data_dirs () {
     ls "$1" | grep -E "^[[:digit:]]+$"
 }
