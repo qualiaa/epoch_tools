@@ -1,0 +1,18 @@
+#!/bin/bash
+
+mpif90 -c -O3  -I../SDF/FORTRAN/include -I/usr/include -Iobj -Jobj  -o \
+obj/$(basename ${1%.[fF]90}).o  -D_COMMIT=v4.4.11-14-g6ceba00-dirty \
+-D_DATE=1441883646 -D_MACHINE=coalab-34 -Isrc/include -Wconversion \
+-Wconversion-extra "$1" 2>&1 |
+    sed '
+/:$/{
+    N;N;N;N
+    /Warning: Conversion from /{
+        s//    /;
+        s/at ([[:digit:]]\+)$//
+        s/\n[[:digit:][:space:]]*\n/\n\n/g
+        s/\n//g
+        s/\t/    /g
+        s/[[:space:]]\{4,\}/\t/g
+    }
+}'
