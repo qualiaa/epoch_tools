@@ -1,0 +1,50 @@
+#!/bin/bash
+
+function min()
+{
+    if [ $1 -lt $2 ]; then
+        echo $1;
+    else
+        echo $2;
+    fi
+}
+
+outfile=out
+
+while getopts ":o:" flag; do
+    if [ $flag == 'o' ]; then
+        outfile="$OPTARG"
+    fi
+done
+
+shift $((${OPTIND} - 1))
+[ $# -eq 0 ] && set -- *
+N=$#
+echo $@
+
+tempdir=`mktemp --tmpdir=. -d`
+trap 'rm -r "$tempdir"' EXIT
+tempfile=`mktemp --tmpdir="$tempdir"`
+
+for target in "$@"; do
+    if [ ! -d $target ]; then
+        echo "$0: $target not a directory" >&2
+        N=$(($N - 1))
+    else
+        (
+        tfile="${tempdir}/${target//\//_}"
+        process_single_run "$target" "${tfile}"
+        # store the row labels in output files
+        cut -f1 "$tfile" > "${tempfile}"
+        # store the data column in a .dat file
+        cut -f2 "$tfile" > "${tfile}.dat"
+        )&
+    fi
+done
+
+wait
+
+# average the values in the .dat files and reattach the labels
+paste -d+ "$tempdir"/*.dat | bc |
+    xargs -n1 printf "%s / ${N}.0\n" | bc -l |
+    paste "$tempfile" - > ${outfile}

@@ -1,0 +1,61 @@
+#!/bin/bash
+
+function reduce_list() {
+    paste -sd"$1" | bc
+}
+function sum_list() {
+    reduce_list +
+}
+
+infile="out"
+dir=${1:-.}
+outfile=${2:-"${dir}/tabulated_times"}
+tempfile=`mktemp`
+trap 'rm "$tempfile"' EXIT
+
+# clear outfile. all stdout goes there
+:>$outfile
+exec {stdout}>&1 1>"$outfile"
+
+# move time outputs to tempfile
+sed -n '/ *Final runtime/,$p' < "${dir}/${infile}" > "${tempfile}"
+
+# take all but first line and put in outfile
+tail -n+2 "$tempfile" | sed 's/ *//g' # > $outfile
+
+# remove non-time information from first line
+head -1 "$tempfile" |
+    sed -E 's/.*= ([[:digit:]]+) minutes, (.*) seconds/\1 \2/g' |
+    mtos |
+    sed 's/^/total_time\t/'
+cp "$outfile" "$tempfile"
+
+# subtract total from sum for "unaccounted" time
+printf "other\t"
+{
+tail -1 "$tempfile" | cut -f2
+head -n-1 "$tempfile" | cut -f2 | sum_list
+} | reduce_list -
+
+# want to bring total comm_time and total calc_time for core together
+for class in calc_time comm_time; do
+    printf "core_$class\t"
+    grep "$class" < "$tempfile" | cut -f2 | sum_list
+done
+
+# File is now
+#  7 field_comm_time
+# 10 field_bcs_time
+#  3 field_calc_time
+#  4 current_calc_time
+#  8 current_comm_time
+#  6 part_comm_time
+#  2 part_calc_time
+#  1 total_time
+# 11 other
+#  5 core_calc_time
+#  9 core_comm_time
+# want to reorder
+
+printf "%d\n" 7 10 3 4 8 6 2 1 11 5 9 | paste - "$outfile" > "$tempfile"
+sort "$tempfile" -k1,1n | cut -f2- > "$outfile"

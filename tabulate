@@ -1,65 +1,44 @@
 #!/bin/bash
-# tabulate.sh: tabulate timing data from multiple epoch runs
 
-corefile="core.dat"
-timefile="time.dat"
-
-data_dirs () {
-    ls "$1" | grep -E "^[[:digit:]]+$"
+mutex_lock() {
+    until mutex ${1:-lock}; do
+        sleep 0.001
+    done
 }
 
-process () {
-    local dir=$1
-    cat $dir/time.out \
-        | sed -En 's/^real *(.*)m(.*)s$/\1 \2/p' \
-        | mtos \
-        >> "$timefile"
-
-    cat $dir/out \
-        | sed -En '/runtime/{ s/^.*= //;s/ *minutes,//;s/ *seconds//p }' \
-        | mtos \
-        >> "$corefile"
-
+function mutex() {
+    mkdir ${1:-lock} 2>/dev/null
 }
 
-to_table () {
-    sed -i '
-    /^$/!{
-        H
-        d
-    }
-    /^$/{
-        x
-        s/\n/\t/g
-        s/^\t//
-    }' $1
+function mutex_unlock() {
+    rmdir ${1:-lock} 2>/dev/null
 }
 
-if [ $# -eq 0 ]; then
-    set - $(ls -d */)
-    echo $@
-fi
+tempdir=`mktemp --tmpdir=. -d`
+labelfile=`mktemp --tmpdir=$tempdir`
+trap 'rm -r "$tempdir"' EXIT
+outfile="out"
 
-: > $corefile
-: > $timefile
-
-for build in "$@"; do
-    title="${build%_*proc*}"
-    title="${title%_sp}"
-    echo $title >> $timefile
-    echo $title >> $corefile
-    if [ -d "${build}/1" ]; then
-        for n in $(data_dirs "$build"); do
-            dir="${build}/$n"
-            process "$dir"
-        done
-    else
-        process "$build"
+while getopts ":o:" flag; do
+    if [ $flag == 'o' ]; then
+        outfile="$OPTARG"
     fi
+done
+shift $((${OPTIND} - 1))
 
-    echo >> $corefile
-    echo >> $timefile
+echo > "$labelfile"  # empty first column
+for folder in "$@"; do
+    [ ! -d "$folder" ] && { echo "not folder: $folder" >&2; continue; }
+    (
+    flattened_folder_name="${folder//\//_}"
+    bfile="${tempdir}/${flattened_folder_name}"
+    process_batch_run -o "${bfile}" "$folder"/*
+    echo "$flattened_folder_name" > "${bfile}.dat"
+    cut -f2 "$bfile"             >> "${bfile}.dat"
+    mutex "${tempdir}/once" && cut -f1 "${bfile}" >> "$labelfile"
+    )&
 done
 
-to_table $corefile
-to_table $timefile
+wait
+
+paste "$labelfile" "$tempdir"/*.dat > "$outfile"
