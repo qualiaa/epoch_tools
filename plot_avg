@@ -11,6 +11,8 @@ set boxwidth $width
 set style fill solid
 set style line 1 lc rgb "#ff9999"
 set style line 2 lc rgb "#dd8080"
+set ylabel "Time / s"
+set xlabel "Build"
 set yrange [0:]
 unset key
 
