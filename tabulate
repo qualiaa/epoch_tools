@@ -17,7 +17,6 @@ function mutex_unlock() {
 tempdir=`mktemp --tmpdir=. -d`
 labelfile=`mktemp --tmpdir=$tempdir`
 trap 'rm -r "$tempdir"' EXIT
-outfile="out"
 
 while getopts ":o:" flag; do
     if [ $flag == 'o' ]; then
@@ -41,4 +40,4 @@ done
 
 wait
 
-paste "$labelfile" "$tempdir"/*.dat > "$outfile"
+paste "$labelfile" "$tempdir"/*.dat > "${outfile:-out}"
