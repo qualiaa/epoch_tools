@@ -1,0 +1,17 @@
+#!/usr/bin/awk -f
+
+BEGIN { FS = OFS = "\t" }
+FNR == 1 { print; next }
+FNR == 2 {
+    nrows = NF
+    for (i = 2; i <= nrows; ++i) {
+        denom[i] = $i
+        $i = 1
+    }
+}
+FNR > 2 {
+    for (i = 2; i <= nrows; ++i) {
+        $i = $i/denom[i]
+    }
+}
+1

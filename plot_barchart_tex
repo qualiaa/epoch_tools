@@ -1,0 +1,133 @@
+#!/bin/bash
+
+# set -x 
+NORMALISE=false
+COLNAME=
+xlab=
+
+while getopts ":nc:t:x:" flag; do
+    case "$flag" in
+        c) COLNAME="$OPTARG" ;;
+        t) TITLE="$OPTARG" ;;
+        n) NORMALISE=true ;;
+        x) xlab="$OPTARG" ;;
+        :) echo "Option -$OPTARG requires argument" >&2 ;;
+        \?) echo "Unrecognized option -$OPTARG" >&2 ;;
+        *) echo "Unexpected optargs output" >&2 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+infile=$1
+outfile=${2:-"${infile%.*}"}
+tempdir=$(mktemp --tmpdir=. -d)
+trap 'rm -r "$tempdir"' EXIT
+[ -z "$infile" ] &&  { echo "No input file!" >&2; exit 1 ;}
+datafile="${outfile}.dat"
+tex_preprocess < "$infile" > "$datafile"
+COLNAME="${COLNAME:-$(head -1 $datafile | cut -f2)}"
+TITLE=${TITLE:-$COLNAME}
+readonly TITLE NORMALISE COLNAME
+
+if [ "$NORMALISE" == true ]; then
+    xlab=${xlab:-"Speedup"}
+    EXTRA_DRAW='
+        \draw[dashed] ({axis cs:1.0,0}|-{rel axis cs:0,0}) --
+                      ({axis cs:1.0,0}|-{rel axis cs:0,1});'
+else
+    xlab=${xlab:-"Time / s"}
+fi
+
+
+
+
+
+DRAW="$EXTRA_DRAW
+    \addplot[draw,fill=black,
+             %fill=red!30,
+             %postaction={ pattern=north east lines },
+             discard if not={label}{Total},
+            ] table [
+        x=$COLNAME,
+        y expr=-\coordindex,
+    ] {$datafile};
+
+    \addplot[draw,black,pattern=north east lines,discard if={label}{Total}
+        ] table [
+        x=$COLNAME,
+        y expr=-\coordindex,
+    ] {$datafile};"
+
+
+
+
+
+cat > "${outfile}.tex" <<HERE
+\begin{filecontents}{$datafile}
+$(cat $datafile)
+\end{filecontents}
+
+\pgfplotstablegetrowsof{$datafile}
+\edef\numberofrows{\pgfplotsretval}
+
+\begin{tikzpicture}
+\begin{axis}[
+    xbar, /pgf/bar shift=0pt,
+    xmin=0,
+    xlabel=$xlab,
+    title=$TITLE,
+    ytick ={0,...,-\numberofrows},
+    yticklabels from table={$datafile}{label},
+]
+
+$DRAW
+
+\end{axis}
+\end{tikzpicture}
+HERE
+
+
+
+
+
+preamble='\documentclass{article}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{filecontents}
+\usetikzlibrary{decorations.pathreplacing,patterns, positioning,arrows,shapes}
+\pgfplotsset{compat=1.12}
+%\pgfplotstableset{col sep=tab}
+%\usepgfplotslibrary{external}
+%\tikzexternalize
+
+% from
+% http://tex.stackexchange.com/questions/58548/is-it-possible-to-change-the-color-of-a-single-bar-when-the-bar-plot-is-based-on/
+\pgfplotsset{
+    discard if/.style 2 args={
+        x filter/.code={
+            \edef\tempa{\thisrow{#1}}
+            \edef\tempb{#2}
+            \ifx\tempa\tempb
+                \def\pgfmathresult{inf}
+            \fi
+        }
+    },
+    discard if not/.style 2 args={
+        x filter/.code={
+            \edef\tempa{\thisrow{#1}}
+            \edef\tempb{#2}
+            \ifx\tempa\tempb
+            \else
+                \def\pgfmathresult{inf}
+            \fi
+        }
+    }
+}
+
+\begin{document}'
+end='\end{document}'
+
+cat <(echo "$preamble") - <(echo "$end") <"${outfile}.tex"  > "${tempdir}/file.tex"
+pdflatex -shell-escape -output-directory "$tempdir" "${tempdir}/file.tex" >/dev/null
+mv "${tempdir}/file.pdf" "${outfile}.pdf"
+rm "$datafile"

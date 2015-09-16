@@ -1,0 +1,51 @@
+#!/bin/bash
+
+set -e
+tempdir=$(mktemp --tmpdir=. -d)
+trap 'rm -r "$tempdir"' EXIT
+table="${tempdir}/table"
+FLAGS=
+NORMALISE=false
+
+while getopts ":n:" flag; do
+    case "$flag" in
+        n) basefile="$OPTARG"; NORMALISE=true ;;
+        :) echo "Option -$OPTARG requires argument" >&2 ;;
+        \?) echo "Unrecognized option -$OPTARG" >&2 ;;
+        *) echo "Unexpected optargs output" >&2 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+[ $# -ge 1 ] || { echo "No arguments" >&2; exit; }
+
+tabulate -o "$table" "$@"
+remove_pointless "$table" > "${table}.tmp"
+mv "${table}.tmp" "$table"
+
+if [ "$NORMALISE" == true ]; then
+    FLAGS="$FLAGS -n"
+    table_normed="${table}.normed"
+    speedup "$basefile" "$table" > "$table_normed"
+    table="$table_normed"
+fi
+
+cols=$(head -1 "$table")
+n=$(wc -w<<<"$cols")
+
+labels=$(cut -f1 "$table" | tail -n+2)
+echo $labels
+pretty_labels=$(prettify <<<"$labels")
+for i in $(seq 1 $n) ; do
+    (
+    col=$(($i+1))
+    col_file="${tempdir}/${col}"
+    pretty_file="${col_file}.p"
+    cut -f$col "$table" > "$col_file"
+    name=$(head -1 "$col_file" | cut -f2)
+    pretty_name=$(prettify <<<"$name")
+    printf "label\t%s\n" "$pretty_name" > "$pretty_file"
+    paste <(echo "$pretty_labels") <(tail -n+2 "$col_file") >> "$pretty_file"
+    plot_barchart_tex $FLAGS -t "$pretty_name" "$pretty_file" "$name"
+    )&
+done
+wait

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+[ $# -ne 2 ] && { echo "Usage: rel_file tablefile"; exit; }
+rel_file="$1"
+table="$2"
+
+speedup "$rel_file" "$table" |
+    head -2 | t | sed -E 's/[[:digit:]]*(proc|node)//' | prettify > overall_speedup.p
+plot_barchart_tex -t 'Total Execution Time' -n overall_speedup.p

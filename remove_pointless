@@ -1,0 +1,39 @@
+#!/usr/bin/awk -f
+
+BEGIN { OFS = FS = "\t"; RS="\n" }
+
+cols < NF {cols = NF}
+NR == 1
+NR > 1 {
+    labels[NR] = $1
+    for (i = 2; i <= NF; ++i) {
+        if ($1 == "part_comm_time") {
+            pc[i] = $i
+        }
+        else if ($1 == "field_bcs_time") {
+            fb[i] = $i
+        }
+        values[$1","i] = $i
+    }
+}
+
+END {
+    for (j = 2; j <= NR; ++j) {
+        name = labels[j]
+        if (name != "part_comm_time" && name != "field_bcs_time") {
+            printf "%s%s", name, OFS
+            for (i = 2; i <= cols; ++i) {
+                value = values[name","i]
+                if (name == "other") {
+                    value += fb[i]
+                }
+                else if (name == "total_comm_time") {
+                    value += pc[i]
+                }
+                printf value
+                if (i != cols) printf OFS
+            }
+            printf "\n"
+        }
+    }
+}

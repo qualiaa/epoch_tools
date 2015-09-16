@@ -1,0 +1,16 @@
+#!/bin/sed -Ef
+
+s/_1node/_1_node/
+s/_([[:digit:]]+)node/_\1_nodes/
+s/_([[:digit:]]+)proc/_\1_cores/
+
+s/part([^i]|$)/particle\1/
+s/epoch/EPOCH/
+s/fcp_/fields_currents_particles_/
+s/cf_/currents_fields_/
+s/cp_/currents_particles_/
+s/bcs/BCS/
+
+s/_?time(_?)/\1/g
+s/_/ /g
+s/\b(.)/\u\1/g

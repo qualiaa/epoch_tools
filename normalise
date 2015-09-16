@@ -1,0 +1,30 @@
+#!/usr/bin/awk -f
+
+BEGIN { FS=OFS="\t" }
+NR == FNR {
+    if (FNR != 1) {
+        label[nrow++] = $1
+        base_value[$1] = $2
+    }
+    next
+}
+
+FNR == 1 { cols = NF; print; next }
+
+base_value[$1] != "" {
+    for (i = 2; i <= NF; ++i) {
+        value[$1,i] = $i / base_value[$1]
+    }
+}
+
+END {
+    for (i = 0; i < nrow; ++i) {
+        name = label[i]
+        printf "%s%s", name, OFS
+        for (j = 2; j <= cols; ++j) {
+            printf value[name,j]
+            if (j != cols) printf OFS
+        }
+        printf "\n"
+    }
+}

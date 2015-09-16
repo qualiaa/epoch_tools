@@ -39,7 +39,7 @@ head -n-1 "$tempfile" | cut -f2 | sum_list
 
 # want to bring total comm_time and total calc_time for core together
 for class in calc_time comm_time; do
-    printf "core_$class\t"
+    printf "total_$class\t"
     grep "$class" < "$tempfile" | cut -f2 | sum_list
 done
 
@@ -53,8 +53,8 @@ done
 #  2 part_calc_time
 #  1 total_time
 # 11 other
-#  5 core_calc_time
-#  9 core_comm_time
+#  5 total_calc_time
+#  9 total_comm_time
 # want to reorder
 
 printf "%d\n" 7 10 3 4 8 6 2 1 11 5 9 | paste - "$outfile" > "$tempfile"
